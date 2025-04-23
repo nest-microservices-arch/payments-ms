@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { envs } from 'src/config/envs';
 import Stripe from 'stripe';
 import { PaymentSessionDto } from './dto/payment-session.dto';
@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 @Injectable()
 export class PaymentsService {
   private readonly stripe: Stripe;
+  private readonly logger = new Logger(PaymentsService.name);
 
   constructor() {
     this.stripe = new Stripe(envs.STRIPE_SECRET);
@@ -38,7 +39,12 @@ export class PaymentsService {
       cancel_url: envs.STRIPE_CANCEL_URL,
     });
 
-    return session;
+    // return session;
+    return {
+      cancelUrl: session.cancel_url,
+      successUrl: session.success_url,
+      url: session.url,
+    }
   }
 
   async handleStripeWebhook(request: Request, response: Response) {
@@ -77,6 +83,12 @@ export class PaymentsService {
 
   private handleChargeSucceeded(event: Stripe.Event) {
     const chargeSucceeded = event.data.object as Stripe.Charge;
-    console.log({ metadata: chargeSucceeded.metadata });
+    const payload = {
+      stripePaymentId: chargeSucceeded.id,
+      orderId: chargeSucceeded.metadata.orderId,
+      receiptUrl: chargeSucceeded.receipt_url,
+    }
+
+    this.logger.log({ payload });
   }
 }
